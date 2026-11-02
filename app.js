@@ -119,7 +119,15 @@
   }
 
   // ---------- AI call ----------
-  var lastTextAt = 0;
+  // Penyedia utama (config) + cadangan otomatis (CFG.FALLBACK) bila utama gagal / kena limit.
+  function providers() {
+    var list = [{ name: "utama", url: CFG.API_URL, key: CFG.API_KEY, model: CFG.MODEL, extra: CFG.EXTRA_BODY || {}, cooldown: CFG.FREE_COOLDOWN_MS || 0, wait: false }];
+    var f = CFG.FALLBACK;
+    if (f && f.API_URL) list.push({ name: "cadangan", url: f.API_URL, key: f.API_KEY, model: f.MODEL, extra: f.EXTRA_BODY || {}, cooldown: f.FREE_COOLDOWN_MS || 0, wait: true });
+    else list[0].wait = true;
+    return list;
+  }
+  var lastTextAt = {};
   function sleep(ms, signal) {
     return new Promise(function (resolve, reject) {
       var t = setTimeout(resolve, ms);
@@ -129,35 +137,35 @@
   // Batas gratis (mis. Pollinations: 1 balasan / 45 dtk per IP) -> tunggu otomatis lalu coba lagi.
   function retryAfterSec(res, text) {
     var h = parseInt(res.headers.get("retry-after"), 10); if (h > 0) return h;
-    var m = /retry after\s*(\d+)\s*s/i.exec(text || ""); return m ? parseInt(m[1], 10) : 0;
+    var m = /retry after\s*(\d+(?:\.\d+)?)\s*s/i.exec(text || ""); return m ? Math.ceil(parseFloat(m[1])) : 0;
   }
-  async function callAI(history, onDelta, signal, onWait) {
+  async function requestProvider(p, messages, stream, temperature, signal, onWait) {
     var headers = { "Content-Type": "application/json" };
-    if (CFG.API_KEY) headers["Authorization"] = "Bearer " + CFG.API_KEY;
-    var body = {
-      model: CFG.MODEL, stream: !!CFG.STREAM, temperature: CFG.TEMPERATURE, seed: Math.floor(Math.random() * 1e9),
-      messages: [{ role: "system", content: CFG.SYSTEM_PROMPT }].concat(history.slice(-CFG.MAX_HISTORY))
-    };
+    if (p.key) headers["Authorization"] = "Bearer " + p.key;
+    var body = Object.assign({ model: p.model, stream: !!stream, temperature: temperature, seed: Math.floor(Math.random() * 1e9), messages: messages }, p.extra);
     var res, tries = 0;
     while (true) {
-      res = await fetch(CFG.API_URL, { method: "POST", headers: headers, body: JSON.stringify(body), signal: signal });
-      if ((res.status === 402 || res.status === 429) && tries < 3) {
+      res = await fetch(p.url, { method: "POST", headers: headers, body: JSON.stringify(body), signal: signal });
+      lastTextAt[p.name] = Date.now();
+      if (p.wait && (res.status === 402 || res.status === 429) && tries < 3) {
         var txt0 = ""; try { txt0 = await res.text(); } catch (e) {}
-        if (res.status === 402 && !/limit/i.test(txt0)) { res = { ok: false, status: 402, text: function () { return Promise.resolve(txt0); } }; break; }
+        if (res.status === 402 && !/limit/i.test(txt0)) throw new Error("HTTP 402: " + txt0.slice(0, 200));
         var wait = Math.min(Math.max(retryAfterSec(res, txt0), 3), 90) + 1; tries++;
         for (var sec = wait; sec > 0; sec--) { if (onWait) onWait(sec); await sleep(1000, signal); }
         continue;
       }
-      if (res.status >= 500 && tries < 3) { tries++; await sleep(2500 * tries, signal); continue; }
+      if (p.wait && res.status >= 500 && tries < 3) { tries++; await sleep(2500 * tries, signal); continue; }
       break;
     }
-    lastTextAt = Date.now();
     if (!res.ok) { var t = ""; try { t = await res.text(); } catch (e) {} throw new Error("HTTP " + res.status + (t ? ": " + t.slice(0, 200) : "")); }
+    return res;
+  }
+  async function readReply(res, onDelta, signal) {
     var ctype = res.headers.get("content-type") || "";
-    if (!CFG.STREAM || !res.body || ctype.indexOf("event-stream") < 0) {
+    if (!res.body || ctype.indexOf("event-stream") < 0) {
       var j = await res.json();
       var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
-      await typeOut(txt, onDelta, signal);
+      if (onDelta) await typeOut(txt, onDelta, signal);
       return txt;
     }
     var reader = res.body.getReader(), dec = new TextDecoder(), buf = "", full = "";
@@ -171,11 +179,30 @@
         var data = l.slice(5).trim(); if (data === "[DONE]") continue;
         try {
           var d = JSON.parse(data), delta = d.choices && d.choices[0] && d.choices[0].delta;
-          if (delta && typeof delta.content === "string" && delta.content) { full += delta.content; onDelta(full); }
+          if (delta && typeof delta.content === "string" && delta.content) { full += delta.content; if (onDelta) onDelta(full); }
         } catch (e) {}
       }
     }
     return full;
+  }
+  async function callAI(history, onDelta, signal, onWait, onSwitch) {
+    var messages = [{ role: "system", content: CFG.SYSTEM_PROMPT }].concat(history.slice(-CFG.MAX_HISTORY));
+    var list = providers(), lastErr;
+    for (var i = 0; i < list.length; i++) {
+      var got = false;
+      try {
+        if (i > 0 && onSwitch) onSwitch(list[i]);
+        var res = await requestProvider(list[i], messages, CFG.STREAM, CFG.TEMPERATURE, signal, onWait);
+        var reply = await readReply(res, function (t) { got = true; onDelta(t); }, signal);
+        if (reply || i === list.length - 1) return reply;
+        lastErr = new Error("Jawaban kosong");
+      } catch (e) {
+        if (e.name === "AbortError" || got) throw e;
+        lastErr = e;
+        if (window.console) console.warn("Felix AI: penyedia " + list[i].name + " gagal:", e.message);
+      }
+    }
+    throw lastErr || new Error("Tidak ada penyedia AI");
   }
   async function typeOut(txt, onDelta, signal) { // efek mengetik jika respons non-streaming
     for (var i = 0; i <= txt.length; i += 4) { if (signal.aborted) return; onDelta(txt.slice(0, i)); await new Promise(function (r) { setTimeout(r, 8); }); }
@@ -206,6 +233,8 @@
         if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; if (ended) return; setBot(wrap, last, true); scrollDown(); }); }
       }, controller.signal, function (sec) {
         if (!last) wrap.querySelector(".bubble").innerHTML = '<p class="muted-note">⏳ Batas gratis AI tercapai, mencoba lagi dalam ' + sec + " detik…</p>";
+      }, function () {
+        if (!last) wrap.querySelector(".bubble").innerHTML = '<p class="muted-note">🔁 Server utama sibuk, beralih ke server cadangan…</p>';
       });
       ended = true;
       if (!reply) reply = "_(Tidak ada jawaban. Silakan coba lagi.)_";
@@ -256,23 +285,25 @@
   }
   async function enhancePrompt(prompt, signal) {
     if (!CFG.IMAGE_ENHANCE_PROMPT) return prompt;
-    if (CFG.FREE_COOLDOWN_MS && Date.now() - lastTextAt < CFG.FREE_COOLDOWN_MS) return prompt; // jangan habiskan kuota chat
     var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, CFG.IMAGE_ENHANCE_TIMEOUT_MS || 15000);
     var onAbort = function () { ctrl.abort(); }; if (signal) signal.addEventListener("abort", onAbort);
+    var msgs = [
+      { role: "system", content: "You convert image requests (any language) into one concise, vivid English prompt for an AI image generator (max 60 words). Keep the user's subject and intent, add useful details about style, lighting and composition. Output ONLY the prompt text, no quotes, no explanations." },
+      { role: "user", content: prompt }
+    ];
     try {
-      var headers = { "Content-Type": "application/json" };
-      if (CFG.API_KEY) headers["Authorization"] = "Bearer " + CFG.API_KEY;
-      var res = await fetch(CFG.API_URL, { method: "POST", headers: headers, signal: ctrl.signal, body: JSON.stringify({
-        model: CFG.MODEL, stream: false, temperature: 0.6, seed: Math.floor(Math.random() * 1e9),
-        messages: [
-          { role: "system", content: "You convert image requests (any language) into one concise, vivid English prompt for an AI image generator (max 60 words). Keep the user's subject and intent, add useful details about style, lighting and composition. Output ONLY the prompt text, no quotes, no explanations." },
-          { role: "user", content: prompt }
-        ] }) });
-      lastTextAt = Date.now();
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      var j = await res.json();
-      var out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || "").trim().replace(/^["'`]+|["'`]+$/g, "");
-      return out && out.length < 800 ? out : prompt;
+      var list = providers();
+      for (var i = 0; i < list.length; i++) {
+        var p = Object.assign({}, list[i], { wait: false });
+        if (p.cooldown && Date.now() - (lastTextAt[p.name] || 0) < p.cooldown) continue; // jangan habiskan kuota chat gratis
+        try {
+          var res = await requestProvider(p, msgs, false, 0.6, ctrl.signal);
+          var out = (await readReply(res, null, ctrl.signal)).trim().replace(/^["'`]+|["'`]+$/g, "");
+          if (out && out.length < 800) return out;
+        } catch (e) { if (ctrl.signal.aborted) break; }
+      }
+      if (signal && signal.aborted) { var ab = new Error("aborted"); ab.name = "AbortError"; throw ab; }
+      return prompt;
     } catch (e) { if (signal && signal.aborted) throw e; return prompt; }
     finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", onAbort); }
   }
