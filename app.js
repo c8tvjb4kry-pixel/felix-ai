@@ -68,7 +68,7 @@
       wrap.innerHTML = '<div class="bubble"></div>';
       wrap.querySelector(".bubble").textContent = content;
     } else {
-      wrap.innerHTML = '<img class="avatar" src="logo.svg" alt="Felix"><div style="flex:1;min-width:0"><div class="bubble"></div><div class="msg-actions"></div></div>';
+      wrap.innerHTML = '<img class="avatar" src="icons/icon.svg" alt="Felix"><div style="flex:1;min-width:0"><div class="bubble"></div><div class="msg-actions"></div></div>';
       setBot(wrap, content);
     }
     els.messages.appendChild(wrap);

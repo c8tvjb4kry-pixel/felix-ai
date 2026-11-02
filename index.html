@@ -5,11 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Felix AI</title>
 <meta name="description" content="Felix AI — asisten AI pintar untuk menjawab pertanyaanmu.">
-<link rel="icon" href="logo.svg" type="image/svg+xml">
-<meta name="theme-color" content="#0b0b12">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#060b1a">
+<meta name="apple-mobile-web-app-title" content="Felix AI">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Felix AI">
+<meta property="og:title" content="Felix AI — Asisten AI cepat">
+<meta property="og:description" content="Tanya apa saja, tulis kode, terjemahkan, atau buat gambar — dalam hitungan detik.">
+<meta property="og:url" content="https://c8tvjb4kry-pixel.github.io/felix-ai/">
+<meta property="og:image" content="https://c8tvjb4kry-pixel.github.io/felix-ai/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://c8tvjb4kry-pixel.github.io/felix-ai/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Michroma&display=swap">
 <link rel="stylesheet" href="vendor/hl-dark.css">
 <link rel="stylesheet" href="style.css">
 <script>
@@ -21,7 +35,7 @@
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
-      <div class="brand"><img src="logo.svg" alt="" class="logo"><span>Felix AI</span></div>
+      <div class="brand"><img src="icons/icon.svg" alt="" class="logo"><span class="wordmark">FELIX <em>AI</em></span></div>
       <button class="icon-btn only-mobile" id="closeSidebar" title="Tutup menu" aria-label="Tutup menu">✕</button>
     </div>
     <button class="new-chat" id="newChat"><span class="plus">＋</span> Chat baru</button>
@@ -45,8 +59,9 @@
       <div class="welcome" id="welcome">
         <div class="orb-wrap" aria-hidden="true">
           <div class="orb"></div>
-          <img src="logo.svg" alt="" class="welcome-logo">
+          <img src="logo.svg" alt="Felix AI" class="welcome-logo">
         </div>
+        <div class="welcome-brand wordmark" aria-hidden="true">FELIX <em>AI</em></div>
         <h1><span class="grad-text" id="greet" data-text="Halo! Saya Felix AI">Halo! Saya Felix AI</span><span class="wave">👋</span></h1>
         <p class="welcome-sub">Tanya apa saja, tulis kode, terjemahkan, atau buat gambar — dalam hitungan detik.</p>
         <div class="suggestions">
