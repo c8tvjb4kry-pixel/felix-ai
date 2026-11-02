@@ -6,6 +6,10 @@
 <title>Felix AI</title>
 <meta name="description" content="Felix AI — asisten AI pintar untuk menjawab pertanyaanmu.">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0b0b12">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="vendor/hl-dark.css">
 <link rel="stylesheet" href="style.css">
 <script>
@@ -13,13 +17,14 @@
 </script>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
       <div class="brand"><img src="logo.svg" alt="" class="logo"><span>Felix AI</span></div>
       <button class="icon-btn only-mobile" id="closeSidebar" title="Tutup menu" aria-label="Tutup menu">✕</button>
     </div>
-    <button class="new-chat" id="newChat"><span>＋</span> Chat baru</button>
+    <button class="new-chat" id="newChat"><span class="plus">＋</span> Chat baru</button>
     <div class="history-label">Riwayat chat</div>
     <nav class="history" id="history"></nav>
     <div class="sidebar-bottom">
@@ -38,14 +43,21 @@
 
     <section class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <img src="logo.svg" alt="Felix AI" class="welcome-logo">
-        <h1>Halo! Saya Felix AI 👋</h1>
-        <p>Ada yang bisa saya bantu hari ini?</p>
+        <div class="orb-wrap" aria-hidden="true">
+          <div class="orb"></div>
+          <img src="logo.svg" alt="" class="welcome-logo">
+        </div>
+        <h1><span class="grad-text" id="greet" data-text="Halo! Saya Felix AI">Halo! Saya Felix AI</span><span class="wave">👋</span></h1>
+        <p class="welcome-sub">Tanya apa saja, tulis kode, terjemahkan, atau buat gambar — dalam hitungan detik.</p>
         <div class="suggestions">
-          <button class="suggestion">Jelaskan cara kerja AI dengan bahasa sederhana</button>
-          <button class="suggestion">Buatkan kode HTML untuk halaman login</button>
-          <button class="suggestion">/gambar kucing oranye memakai baju astronaut di bulan</button>
-          <button class="suggestion">Terjemahkan "Selamat pagi, apa kabar?" ke bahasa Inggris</button>
+          <button class="suggestion" style="--i:0" data-prompt="Jelaskan cara kerja AI dengan bahasa sederhana">
+            <span class="s-ico">💡</span><span class="s-body"><b>Jelaskan konsep</b><small>Cara kerja AI dengan bahasa sederhana</small></span><span class="s-arrow">→</span></button>
+          <button class="suggestion" style="--i:1" data-prompt="Buatkan kode HTML untuk halaman login">
+            <span class="s-ico">💻</span><span class="s-body"><b>Tulis kode</b><small>Halaman login dengan HTML</small></span><span class="s-arrow">→</span></button>
+          <button class="suggestion" style="--i:2" data-prompt="/gambar kucing oranye memakai baju astronaut di bulan">
+            <span class="s-ico">🎨</span><span class="s-body"><b>Buat gambar</b><small>Kucing oranye astronaut di bulan</small></span><span class="s-arrow">→</span></button>
+          <button class="suggestion" style="--i:3" data-prompt="Terjemahkan &quot;Selamat pagi, apa kabar?&quot; ke bahasa Inggris">
+            <span class="s-ico">🌐</span><span class="s-body"><b>Terjemahkan</b><small>"Selamat pagi, apa kabar?" ke Inggris</small></span><span class="s-arrow">→</span></button>
         </div>
       </div>
     </section>

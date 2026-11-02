@@ -104,6 +104,8 @@
     if (controller) controller.abort();
     var c = getChat(id); if (!c) return newChat();
     currentId = id; clearMessages();
+    els.messages.classList.add("no-anim");
+    setTimeout(function () { els.messages.classList.remove("no-anim"); }, 50);
     els.welcome.style.display = c.messages.length ? "none" : "";
     c.messages.forEach(function (m) {
       if (m.type === "image") renderImage(addMsgEl("assistant", ""), m);
@@ -115,7 +117,7 @@
   function newChat() {
     if (controller) controller.abort();
     currentId = null; clearMessages(); els.welcome.style.display = "";
-    els.title.textContent = "Felix AI"; renderHistory(); closeSidebar(); els.input.focus();
+    els.title.textContent = "Felix AI"; renderHistory(); closeSidebar(); typeGreeting(); els.input.focus();
   }
 
   // ---------- AI call ----------
@@ -225,12 +227,13 @@
 
     var wrap = addMsgEl("assistant", "");
     wrap.querySelector(".bubble").innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    wrap.classList.add("thinking");
     controller = new AbortController(); setBusy(true);
     var chatId = c.id, last = "", pending = false, ended = false;
     try {
       var reply = await callAI(c.messages.map(function (m) { return { role: m.role, content: m.content }; }), function (partial) {
         last = partial;
-        if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; if (ended) return; setBot(wrap, last, true); scrollDown(); }); }
+        if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; if (ended) return; wrap.classList.remove("thinking"); setBot(wrap, last, true); scrollDown(); }); }
       }, controller.signal, function (sec) {
         if (!last) wrap.querySelector(".bubble").innerHTML = '<p class="muted-note">⏳ Batas gratis AI tercapai, mencoba lagi dalam ' + sec + " detik…</p>";
       }, function () {
@@ -245,7 +248,7 @@
       else {
         wrap.querySelector(".bubble").innerHTML = '<p class="error">⚠️ Maaf, terjadi kesalahan saat menghubungi AI. Silakan coba lagi.<br><small>' + esc(String(e.message || e)) + "</small></p>";
       }
-    } finally { controller = null; setBusy(false); }
+    } finally { wrap.classList.remove("thinking"); controller = null; setBusy(false); }
   }
   function finish(chatId, wrap, reply) {
     var c = getChat(chatId); if (!c) return;
@@ -330,7 +333,12 @@
       '<div class="gen-caption">🎨 <b></b></div></div>';
     var img = b.querySelector("img"), frame = b.querySelector(".gen-frame");
     img.alt = m.prompt; b.querySelector(".gen-caption b").textContent = m.prompt;
-    img.onload = function () { var l = frame.querySelector(".gen-loading"); if (l) l.remove(); frame.style.aspectRatio = ""; };
+    img.onload = function () {
+      var l = frame.querySelector(".gen-loading");
+      requestAnimationFrame(function () { img.classList.add("loaded"); });
+      if (l) { l.style.transition = "opacity .5s"; l.style.opacity = "0"; setTimeout(function () { l.remove(); frame.style.aspectRatio = ""; }, 500); }
+      else frame.style.aspectRatio = "";
+    };
     img.onerror = function () { frame.innerHTML = '<div class="gen-err">⚠️ Gambar tidak bisa dimuat. Coba buat ulang.</div>'; };
     img.src = m.url;
     acts.innerHTML = '<button data-act="dl">⬇️ Unduh</button><button data-act="open">🔍 Buka ukuran penuh</button><button data-act="again">🔄 Buat ulang</button>';
@@ -364,10 +372,12 @@
     var wrap = addMsgEl("assistant", ""), b = wrap.querySelector(".bubble");
     b.innerHTML = imgLoadingHtml(size, "Menyiapkan prompt…"); scrollDown(true);
     controller = new AbortController(); setBusy(true);
-    var chatId = c.id, signal = controller.signal;
+    var chatId = c.id, signal = controller.signal, stepTimer = null;
     try {
       var en = await enhancePrompt(prompt, signal);
-      var gl = b.querySelector(".gl-text"); if (gl) gl.textContent = "Sedang membuat gambar…";
+      var steps = ["Sedang membuat gambar…", "Mencampur warna…", "Menambahkan detail…", "Mengatur cahaya…", "Hampir selesai…"], si = 0;
+      var gl = b.querySelector(".gl-text"); if (gl) gl.textContent = steps[0];
+      stepTimer = setInterval(function () { var g = b.querySelector(".gl-text"); if (g && si < steps.length - 1) g.textContent = steps[++si]; }, 3000);
       var url, lastErr;
       for (var attempt = 0; attempt < 3; attempt++) {
         url = buildImageUrl(en, size, Math.floor(Math.random() * 1e9));
@@ -384,7 +394,7 @@
     } catch (e) {
       if (e.name === "AbortError") wrap.remove();
       else b.innerHTML = '<p class="error">⚠️ Maaf, gambar gagal dibuat. Silakan coba lagi.<br><small>' + esc(String(e.message || e)) + "</small></p>";
-    } finally { controller = null; setBusy(false); }
+    } finally { clearInterval(stepTimer); controller = null; setBusy(false); }
   }
   function setImageMode(on) {
     imageMode = on;
@@ -403,13 +413,33 @@
   });
 
   // ---------- UI events ----------
-  function autosize() { els.input.style.height = "auto"; els.input.style.height = Math.min(els.input.scrollHeight, 200) + "px"; }
+  function autosize() { els.input.style.height = "auto"; els.input.style.height = Math.min(els.input.scrollHeight, 200) + "px"; if (typeof updateSendReady === "function") updateSendReady(); }
   els.input.addEventListener("input", autosize);
   els.input.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(els.input.value); }
   });
   els.form.addEventListener("submit", function (e) { e.preventDefault(); if (controller) controller.abort(); else send(els.input.value); });
-  Array.prototype.forEach.call(document.querySelectorAll(".suggestion"), function (b) { b.onclick = function () { send(b.textContent); }; });
+  Array.prototype.forEach.call(document.querySelectorAll(".suggestion"), function (b) {
+    b.onclick = function () { send(b.dataset.prompt || b.textContent); };
+    b.addEventListener("pointermove", function (e) {
+      var r = b.getBoundingClientRect();
+      b.style.setProperty("--mx", (e.clientX - r.left) + "px"); b.style.setProperty("--my", (e.clientY - r.top) + "px");
+    });
+  });
+  function updateSendReady() { els.send.classList.toggle("ready", !!els.input.value.trim()); }
+  els.input.addEventListener("input", updateSendReady);
+  var reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches, greetTimer = null;
+  function typeGreeting() {
+    var g = $("greet"); if (!g) return;
+    var full = g.dataset.text; clearTimeout(greetTimer);
+    if (reduceMotion || els.welcome.style.display === "none") { g.textContent = full; g.classList.remove("typing-on"); return; }
+    var i = 0; g.textContent = ""; g.classList.add("typing-on");
+    (function step() {
+      g.textContent = full.slice(0, ++i);
+      if (i < full.length) greetTimer = setTimeout(step, 45 + Math.random() * 45);
+      else greetTimer = setTimeout(function () { g.classList.remove("typing-on"); }, 1200);
+    })();
+  }
   $("newChat").onclick = newChat; $("newChatTop").onclick = newChat;
   function openSidebar() { els.sidebar.classList.add("open"); els.overlay.classList.add("show"); }
   function closeSidebar() { els.sidebar.classList.remove("open"); els.overlay.classList.remove("show"); }
@@ -421,9 +451,13 @@
     $("themeIcon").textContent = t === "dark" ? "☀️" : "🌙";
     $("themeText").textContent = t === "dark" ? "Mode terang" : "Mode gelap";
   }
-  $("themeToggle").onclick = function () { applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); };
+  $("themeToggle").onclick = function () {
+    var h = document.documentElement; h.classList.add("theme-anim");
+    clearTimeout(h._ta); h._ta = setTimeout(function () { h.classList.remove("theme-anim"); }, 600);
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); };
   applyTheme(document.documentElement.dataset.theme || "dark");
 
   renderHistory();
+  typeGreeting();
   els.input.focus();
 })();
