@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Felix AI</title>
+<meta name="description" content="Felix AI — asisten AI pintar untuk menjawab pertanyaanmu.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/hl-dark.css">
+<link rel="stylesheet" href="style.css">
+<script>
+  (function(){var t=localStorage.getItem('felix-theme');if(!t)t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;})();
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand"><img src="logo.svg" alt="" class="logo"><span>Felix AI</span></div>
+      <button class="icon-btn only-mobile" id="closeSidebar" title="Tutup menu" aria-label="Tutup menu">✕</button>
+    </div>
+    <button class="new-chat" id="newChat"><span>＋</span> Chat baru</button>
+    <div class="history-label">Riwayat chat</div>
+    <nav class="history" id="history"></nav>
+    <div class="sidebar-bottom">
+      <button class="side-btn" id="themeToggle"><span id="themeIcon">☀️</span> <span id="themeText">Mode terang</span></button>
+      <button class="side-btn danger" id="clearAll">🗑️ Hapus semua chat</button>
+    </div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="openSidebar" title="Menu" aria-label="Menu">☰</button>
+      <div class="topbar-title" id="chatTitle">Felix AI</div>
+      <button class="icon-btn only-mobile" id="newChatTop" title="Chat baru" aria-label="Chat baru">＋</button>
+    </header>
+
+    <section class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <img src="logo.svg" alt="Felix AI" class="welcome-logo">
+        <h1>Halo! Saya Felix AI 👋</h1>
+        <p>Ada yang bisa saya bantu hari ini?</p>
+        <div class="suggestions">
+          <button class="suggestion">Jelaskan cara kerja AI dengan bahasa sederhana</button>
+          <button class="suggestion">Buatkan kode HTML untuk halaman login</button>
+          <button class="suggestion">Beri ide bisnis online modal kecil</button>
+          <button class="suggestion">Terjemahkan "Selamat pagi, apa kabar?" ke bahasa Inggris</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="composer-wrap">
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Kirim pesan ke Felix AI..." autocomplete="off"></textarea>
+        <button type="submit" class="send" id="sendBtn" title="Kirim" aria-label="Kirim">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10.1 15 12 3.4 13.9z"/></svg>
+        </button>
+      </form>
+      <div class="disclaimer">Felix AI bisa membuat kesalahan. Periksa info penting.</div>
+    </footer>
+  </main>
+</div>
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="vendor/highlight.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

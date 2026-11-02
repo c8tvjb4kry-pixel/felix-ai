@@ -1,0 +1,80 @@
+:root{--sidebar:#171717;--bg:#212121;--panel:#2f2f2f;--text:#ececec;--muted:#a0a0a0;--border:#3a3a3a;--accent:#7c5cff;--accent2:#00c2ff;--user:#303030;--hover:#2a2a2a;--code:#0d1117}
+[data-theme=light]{--sidebar:#f7f7f8;--bg:#ffffff;--panel:#f4f4f4;--text:#1f1f1f;--muted:#6b6b6b;--border:#e3e3e3;--user:#f0f0f3;--hover:#ececf1;--code:#0d1117}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{display:flex;height:100vh;height:100dvh;overflow:hidden}
+.sidebar{width:260px;flex-shrink:0;background:var(--sidebar);display:flex;flex-direction:column;padding:12px;border-right:1px solid var(--border);transition:transform .25s}
+.sidebar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+.logo{width:30px;height:30px}
+.new-chat{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600}
+.new-chat:hover,.side-btn:hover,.icon-btn:hover{background:var(--hover)}
+.history-label{font-size:12px;color:var(--muted);margin:16px 6px 6px}
+.history{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.hist-item{display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+.hist-item:hover{background:var(--hover)}.hist-item.active{background:var(--hover);font-weight:600}
+.hist-item .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item .del{opacity:0;border:0;background:none;color:var(--muted);padding:0 4px}
+.hist-item:hover .del,.hist-item.active .del{opacity:1}
+.empty-hist{color:var(--muted);font-size:13px;padding:8px 10px}
+.sidebar-bottom{border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:2px}
+.side-btn{border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;font-size:14px}
+.side-btn.danger{color:#e5484d}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{height:52px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--border);position:relative}
+.topbar-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%}
+.icon-btn{border:0;background:transparent;width:36px;height:36px;border-radius:8px;font-size:18px}
+#openSidebar{position:absolute;left:8px}#newChatTop{position:absolute;right:8px}
+.only-mobile{display:none}
+.messages{flex:1;overflow-y:auto;padding:24px 16px 8px}
+.welcome{max-width:720px;margin:8vh auto 0;text-align:center}
+.welcome-logo{width:64px;height:64px;margin-bottom:12px}
+.welcome h1{font-size:28px;margin:8px 0}.welcome p{color:var(--muted);margin:0 0 28px}
+.suggestions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.suggestion{text-align:left;padding:14px;border-radius:14px;border:1px solid var(--border);background:transparent;font-size:14px;color:var(--text)}
+.suggestion:hover{background:var(--hover)}
+.msg{max-width:760px;margin:0 auto 22px;display:flex;gap:12px}
+.msg.user{justify-content:flex-end}
+.msg.user .bubble{background:var(--user);padding:10px 16px;border-radius:20px;max-width:80%;white-space:pre-wrap;word-wrap:break-word}
+.avatar{width:30px;height:30px;flex-shrink:0;margin-top:2px}
+.msg.bot .bubble{flex:1;min-width:0;line-height:1.65}
+.bubble p{margin:0 0 .8em}.bubble p:last-child{margin-bottom:0}
+.bubble ul,.bubble ol{padding-left:1.4em}
+.bubble a{color:var(--accent2)}
+.bubble table{border-collapse:collapse;margin:.6em 0;display:block;overflow-x:auto}
+.bubble th,.bubble td{border:1px solid var(--border);padding:6px 10px}
+.bubble :not(pre)>code{background:var(--panel);padding:2px 6px;border-radius:6px;font-size:.9em}
+.bubble blockquote{border-left:3px solid var(--accent);margin:.5em 0;padding-left:12px;color:var(--muted)}
+.codeblock{margin:.8em 0;border-radius:10px;overflow:hidden;background:var(--code);border:1px solid #30363d}
+.codehead{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#1c2128;color:#9da7b3;font-size:12px}
+.copy-btn{border:0;background:transparent;color:#9da7b3;font-size:12px}
+.copy-btn:hover{color:#fff}
+.codeblock pre{margin:0;padding:14px;overflow-x:auto}
+.codeblock code{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:13px;color:#e6edf3;background:none!important;padding:0!important}
+.msg-actions{margin-top:6px;display:flex;gap:4px}
+.msg-actions button{border:0;background:transparent;color:var(--muted);font-size:12px;padding:3px 6px;border-radius:6px}
+.msg-actions button:hover{background:var(--hover);color:var(--text)}
+.typing span{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%;background:var(--muted);animation:b 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes b{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+.cursor::after{content:"▍";animation:blink 1s steps(1) infinite;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+.error{color:#e5484d}
+.composer-wrap{padding:8px 16px 14px}
+.composer{max-width:760px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:26px;padding:8px 8px 8px 18px}
+.composer textarea{flex:1;resize:none;border:0;outline:0;background:transparent;color:var(--text);font:inherit;max-height:200px;padding:8px 0;line-height:1.5}
+.send{width:38px;height:38px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.send:disabled{opacity:.4;cursor:default}
+.send.stop{background:var(--text);color:var(--bg)}
+.disclaimer{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
+.overlay{display:none}
+@media (max-width:800px){
+  .only-mobile{display:inline-flex;align-items:center;justify-content:center}
+  .sidebar{position:fixed;z-index:20;top:0;bottom:0;left:0;transform:translateX(-100%)}
+  .sidebar.open{transform:none}
+  .overlay.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+  .suggestions{grid-template-columns:1fr}
+  .welcome{margin-top:4vh}.welcome h1{font-size:22px}
+  .msg.user .bubble{max-width:88%}
+}
