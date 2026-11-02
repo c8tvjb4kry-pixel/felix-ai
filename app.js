@@ -105,7 +105,10 @@
     var c = getChat(id); if (!c) return newChat();
     currentId = id; clearMessages();
     els.welcome.style.display = c.messages.length ? "none" : "";
-    c.messages.forEach(function (m) { addMsgEl(m.role, m.content); });
+    c.messages.forEach(function (m) {
+      if (m.type === "image") renderImage(addMsgEl("assistant", ""), m);
+      else addMsgEl(m.role, m.content);
+    });
     els.title.textContent = c.title || "Felix AI";
     renderHistory(); scrollDown(true);
   }
@@ -116,7 +119,19 @@
   }
 
   // ---------- AI call ----------
-  async function callAI(history, onDelta, signal) {
+  var lastTextAt = 0;
+  function sleep(ms, signal) {
+    return new Promise(function (resolve, reject) {
+      var t = setTimeout(resolve, ms);
+      if (signal) signal.addEventListener("abort", function () { clearTimeout(t); var e = new Error("aborted"); e.name = "AbortError"; reject(e); });
+    });
+  }
+  // Batas gratis (mis. Pollinations: 1 balasan / 45 dtk per IP) -> tunggu otomatis lalu coba lagi.
+  function retryAfterSec(res, text) {
+    var h = parseInt(res.headers.get("retry-after"), 10); if (h > 0) return h;
+    var m = /retry after\s*(\d+)\s*s/i.exec(text || ""); return m ? parseInt(m[1], 10) : 0;
+  }
+  async function callAI(history, onDelta, signal, onWait) {
     var headers = { "Content-Type": "application/json" };
     if (CFG.API_KEY) headers["Authorization"] = "Bearer " + CFG.API_KEY;
     var body = {
@@ -126,9 +141,17 @@
     var res, tries = 0;
     while (true) {
       res = await fetch(CFG.API_URL, { method: "POST", headers: headers, body: JSON.stringify(body), signal: signal });
-      if ((res.status === 429 || res.status >= 500) && tries < 3) { tries++; await new Promise(function (r) { setTimeout(r, 2500 * tries); }); continue; }
+      if ((res.status === 402 || res.status === 429) && tries < 3) {
+        var txt0 = ""; try { txt0 = await res.text(); } catch (e) {}
+        if (res.status === 402 && !/limit/i.test(txt0)) { res = { ok: false, status: 402, text: function () { return Promise.resolve(txt0); } }; break; }
+        var wait = Math.min(Math.max(retryAfterSec(res, txt0), 3), 90) + 1; tries++;
+        for (var sec = wait; sec > 0; sec--) { if (onWait) onWait(sec); await sleep(1000, signal); }
+        continue;
+      }
+      if (res.status >= 500 && tries < 3) { tries++; await sleep(2500 * tries, signal); continue; }
       break;
     }
+    lastTextAt = Date.now();
     if (!res.ok) { var t = ""; try { t = await res.text(); } catch (e) {} throw new Error("HTTP " + res.status + (t ? ": " + t.slice(0, 200) : "")); }
     var ctype = res.headers.get("content-type") || "";
     if (!CFG.STREAM || !res.body || ctype.indexOf("event-stream") < 0) {
@@ -161,6 +184,9 @@
 
   async function send(text) {
     text = text.trim(); if (!text || controller) return;
+    var imgPrompt = detectImageRequest(text);
+    if (imgPrompt === null && imageMode) imgPrompt = text;
+    if (imgPrompt) return sendImage(text, imgPrompt);
     var c = getChat(currentId);
     if (!c) {
       c = { id: uid(), title: text.slice(0, 40) + (text.length > 40 ? "…" : ""), messages: [], updated: Date.now() };
@@ -178,7 +204,9 @@
       var reply = await callAI(c.messages.map(function (m) { return { role: m.role, content: m.content }; }), function (partial) {
         last = partial;
         if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; if (ended) return; setBot(wrap, last, true); scrollDown(); }); }
-      }, controller.signal);
+      }, controller.signal, function (sec) {
+        if (!last) wrap.querySelector(".bubble").innerHTML = '<p class="muted-note">⏳ Batas gratis AI tercapai, mencoba lagi dalam ' + sec + " detik…</p>";
+      });
       ended = true;
       if (!reply) reply = "_(Tidak ada jawaban. Silakan coba lagi.)_";
       finish(chatId, wrap, reply);
@@ -202,6 +230,146 @@
     els.send.innerHTML = b ? '<svg viewBox="0 0 24 24" width="16" height="16"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>'
       : '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10.1 15 12 3.4 13.9z"/></svg>';
   }
+
+  // ---------- Image generation ----------
+  var imageMode = false, imageSize = localStorage.getItem("felix-img-size") || "persegi";
+  var IMG_RE = [
+    /^\/(?:gambar|image|img|foto|photo|draw)\s+([\s\S]+)/i,
+    /^(?:tolong\s+|coba\s+|please\s+)?(?:buat(?:kan|in)?|bikin(?:kan|in)?|generate|generatekan|hasilkan|ciptakan|create|make|draw|lukis(?:kan)?)\s+(?:saya\s+|aku\s+|me\s+)?(?:sebuah\s+|satu\s+|a\s+|an\s+)?(gambar|foto|image|picture|photo|ilustrasi|lukisan|logo|poster|wallpaper)\s*(?:dari|tentang|of|yang|berupa|:)?\s*([\s\S]+)/i,
+    /^gambarkan\s+([\s\S]+)/i
+  ];
+  function detectImageRequest(text) {
+    for (var i = 0; i < IMG_RE.length; i++) {
+      var m = text.match(IMG_RE[i]); if (!m) continue;
+      var subj = (m[2] !== undefined ? m[2] : m[1]).trim();
+      if (m[2] !== undefined && /^(ilustrasi|lukisan|logo|poster|wallpaper)$/i.test(m[1])) subj = m[1].toLowerCase() + " " + subj;
+      if (subj.length > 1) return subj;
+    }
+    return null;
+  }
+  function buildImageUrl(prompt, size, seed) {
+    var sz = CFG.IMAGE_SIZES[size] || CFG.IMAGE_SIZES.persegi;
+    var u = CFG.IMAGE_URL_TEMPLATE.replace("{prompt}", encodeURIComponent(prompt))
+      .replace("{width}", sz.width).replace("{height}", sz.height).replace("{seed}", seed)
+      .replace("{model}", encodeURIComponent(CFG.IMAGE_MODEL || ""));
+    return u.replace(/[?&]model=(?=&|$)/, function (m) { return m[0] === "?" ? "?" : ""; }).replace("?&", "?");
+  }
+  async function enhancePrompt(prompt, signal) {
+    if (!CFG.IMAGE_ENHANCE_PROMPT) return prompt;
+    if (CFG.FREE_COOLDOWN_MS && Date.now() - lastTextAt < CFG.FREE_COOLDOWN_MS) return prompt; // jangan habiskan kuota chat
+    var ctrl = new AbortController(), timer = setTimeout(function () { ctrl.abort(); }, CFG.IMAGE_ENHANCE_TIMEOUT_MS || 15000);
+    var onAbort = function () { ctrl.abort(); }; if (signal) signal.addEventListener("abort", onAbort);
+    try {
+      var headers = { "Content-Type": "application/json" };
+      if (CFG.API_KEY) headers["Authorization"] = "Bearer " + CFG.API_KEY;
+      var res = await fetch(CFG.API_URL, { method: "POST", headers: headers, signal: ctrl.signal, body: JSON.stringify({
+        model: CFG.MODEL, stream: false, temperature: 0.6, seed: Math.floor(Math.random() * 1e9),
+        messages: [
+          { role: "system", content: "You convert image requests (any language) into one concise, vivid English prompt for an AI image generator (max 60 words). Keep the user's subject and intent, add useful details about style, lighting and composition. Output ONLY the prompt text, no quotes, no explanations." },
+          { role: "user", content: prompt }
+        ] }) });
+      lastTextAt = Date.now();
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var j = await res.json();
+      var out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || "").trim().replace(/^["'`]+|["'`]+$/g, "");
+      return out && out.length < 800 ? out : prompt;
+    } catch (e) { if (signal && signal.aborted) throw e; return prompt; }
+    finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", onAbort); }
+  }
+  function loadImage(url, signal, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image(), t = setTimeout(function () { img.src = ""; reject(new Error("Waktu habis")); }, timeoutMs || 120000);
+      img.onload = function () { clearTimeout(t); resolve(img); };
+      img.onerror = function () { clearTimeout(t); reject(new Error("Gagal memuat gambar")); };
+      if (signal) signal.addEventListener("abort", function () { clearTimeout(t); img.src = ""; var e = new Error("aborted"); e.name = "AbortError"; reject(e); });
+      img.src = url;
+    });
+  }
+  function imgLoadingHtml(size, text) {
+    var sz = CFG.IMAGE_SIZES[size] || CFG.IMAGE_SIZES.persegi;
+    return '<div class="gen-img"><div class="gen-frame" style="aspect-ratio:' + sz.width + "/" + sz.height +
+      '"><div class="gen-loading"><div class="spin"></div><span class="gl-text">' + esc(text) + "</span></div></div></div>";
+  }
+  function renderImage(wrap, m) {
+    var b = wrap.querySelector(".bubble"), acts = wrap.querySelector(".msg-actions");
+    b.classList.remove("cursor");
+    var sz = CFG.IMAGE_SIZES[m.size] || CFG.IMAGE_SIZES.persegi;
+    b.innerHTML = '<div class="gen-img"><div class="gen-frame" style="aspect-ratio:' + sz.width + "/" + sz.height +
+      '"><div class="gen-loading"><div class="spin"></div><span>Memuat gambar…</span></div><img alt=""></div>' +
+      '<div class="gen-caption">🎨 <b></b></div></div>';
+    var img = b.querySelector("img"), frame = b.querySelector(".gen-frame");
+    img.alt = m.prompt; b.querySelector(".gen-caption b").textContent = m.prompt;
+    img.onload = function () { var l = frame.querySelector(".gen-loading"); if (l) l.remove(); frame.style.aspectRatio = ""; };
+    img.onerror = function () { frame.innerHTML = '<div class="gen-err">⚠️ Gambar tidak bisa dimuat. Coba buat ulang.</div>'; };
+    img.src = m.url;
+    acts.innerHTML = '<button data-act="dl">⬇️ Unduh</button><button data-act="open">🔍 Buka ukuran penuh</button><button data-act="again">🔄 Buat ulang</button>';
+    acts.querySelector('[data-act="dl"]').onclick = function () { downloadImage(m.url, this); };
+    acts.querySelector('[data-act="open"]').onclick = function () { window.open(m.url, "_blank", "noopener"); };
+    acts.querySelector('[data-act="again"]').onclick = function () { if (!controller) sendImage("/gambar " + m.prompt, m.prompt, m.size); };
+  }
+  async function downloadImage(url, btn) {
+    var label = btn.textContent; btn.textContent = "⏳ Mengunduh…";
+    try {
+      var r = await fetch(url); if (!r.ok) throw new Error();
+      var blob = await r.blob(), a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "felix-ai-" + Date.now() + ".jpg";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      btn.textContent = "✅ Terunduh";
+    } catch (e) { window.open(url, "_blank", "noopener"); btn.textContent = label; return; }
+    setTimeout(function () { btn.textContent = label; }, 1500);
+  }
+  async function sendImage(text, prompt, size) {
+    if (controller) return;
+    size = size || imageSize;
+    var c = getChat(currentId);
+    if (!c) {
+      c = { id: uid(), title: "🎨 " + prompt.slice(0, 36) + (prompt.length > 36 ? "…" : ""), messages: [], updated: Date.now() };
+      chats.push(c); currentId = c.id; els.title.textContent = c.title;
+    }
+    c.messages.push({ role: "user", content: text }); c.updated = Date.now(); save(); renderHistory();
+    addMsgEl("user", text); scrollDown(true);
+    els.input.value = ""; autosize();
+    var wrap = addMsgEl("assistant", ""), b = wrap.querySelector(".bubble");
+    b.innerHTML = imgLoadingHtml(size, "Menyiapkan prompt…"); scrollDown(true);
+    controller = new AbortController(); setBusy(true);
+    var chatId = c.id, signal = controller.signal;
+    try {
+      var en = await enhancePrompt(prompt, signal);
+      var gl = b.querySelector(".gl-text"); if (gl) gl.textContent = "Sedang membuat gambar…";
+      var url, lastErr;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        url = buildImageUrl(en, size, Math.floor(Math.random() * 1e9));
+        try { await loadImage(url, signal, 120000); lastErr = null; break; }
+        catch (e) { if (e.name === "AbortError") throw e; lastErr = e; await new Promise(function (r) { setTimeout(r, 2000 * (attempt + 1)); }); }
+      }
+      if (lastErr) throw lastErr;
+      var msg = { role: "assistant", type: "image", prompt: prompt, enPrompt: en, url: url, size: size,
+        content: "[Felix AI membuat gambar: " + prompt + "]" };
+      var cc = getChat(chatId);
+      if (cc) { cc.messages.push(msg); cc.updated = Date.now(); save(); }
+      if (currentId === chatId) renderImage(wrap, msg);
+      renderHistory();
+    } catch (e) {
+      if (e.name === "AbortError") wrap.remove();
+      else b.innerHTML = '<p class="error">⚠️ Maaf, gambar gagal dibuat. Silakan coba lagi.<br><small>' + esc(String(e.message || e)) + "</small></p>";
+    } finally { controller = null; setBusy(false); }
+  }
+  function setImageMode(on) {
+    imageMode = on;
+    var t = $("imgToggle"); t.classList.toggle("on", on); t.setAttribute("aria-pressed", on ? "true" : "false");
+    $("imageOpts").hidden = !on;
+    els.input.placeholder = on ? "Jelaskan gambar yang ingin dibuat..." : "Kirim pesan ke Felix AI...";
+    els.input.focus();
+  }
+  $("imgToggle").onclick = function () { setImageMode(!imageMode); };
+  Array.prototype.forEach.call(document.querySelectorAll(".size-chip"), function (chip) {
+    chip.classList.toggle("active", chip.dataset.size === imageSize);
+    chip.onclick = function () {
+      imageSize = chip.dataset.size; localStorage.setItem("felix-img-size", imageSize);
+      Array.prototype.forEach.call(document.querySelectorAll(".size-chip"), function (x) { x.classList.toggle("active", x === chip); });
+    };
+  });
 
   // ---------- UI events ----------
   function autosize() { els.input.style.height = "auto"; els.input.style.height = Math.min(els.input.scrollHeight, 200) + "px"; }
