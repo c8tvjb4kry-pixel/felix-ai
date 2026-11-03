@@ -27,12 +27,25 @@ window.FELIX_CONFIG = {
     EXTRA_BODY: {},
     FREE_COOLDOWN_MS: 45000 // batas gratis Pollinations: 1 balasan / 45 dtk per IP
   },
+  // Model penglihatan (vision) — dipakai HANYA jika percakapan terbaru berisi foto dari pengguna.
+  VISION: {
+    MODEL: "qwen/qwen3.8-27b",           // model Groq yang bisa membaca gambar (lewat proxy yang sama)
+    EXTRA_BODY: { reasoning_effort: "none", max_completion_tokens: 900 },
+    MAX_PER_MESSAGE: 4,      // maksimal foto per pesan
+    MAX_IN_CONTEXT: 4,       // maksimal foto yang dikirim ke AI per permintaan (Groq maks 5)
+    CONTEXT_MESSAGES: 8,     // foto lebih lama dari N pesan terakhir tidak dikirim ulang
+    MAX_SIDE: 1280, QUALITY: 0.85,       // kompresi sebelum dikirim
+    THUMB_SIDE: 480, THUMB_QUALITY: 0.72 // versi kecil yang disimpan di riwayat
+  },
   SYSTEM_PROMPT:
     "Kamu adalah Felix AI, asisten AI yang ramah, cerdas, dan membantu. " +
     "Nama kamu Felix AI (jangan menyebut dirimu ChatGPT atau model lain). " +
     "Selalu jawab dalam bahasa yang digunakan pengguna (default: Bahasa Indonesia). " +
     "Gunakan format Markdown bila membantu (daftar, tabel, blok kode dengan nama bahasa). " +
-    "Kamu juga bisa membuat gambar: jika pengguna ingin gambar, sarankan memakai tombol 'Buat gambar' atau perintah /gambar.",
+    "Kamu juga bisa membuat gambar: jika pengguna ingin gambar, sarankan memakai tombol 'Buat gambar' atau perintah /gambar. " +
+    "Pengguna bisa mengirim foto. Setiap foto adalah SATU gambar utuh (sistem mungkin memprosesnya dalam beberapa potongan), " +
+    "jadi jangan menyebutnya kolase/panel/beberapa foto kecuali memang jelas kolase. Jelaskan dan jawab pertanyaan tentang foto dengan akurat. " +
+    "Jika pengguna minta mengedit foto atau membuat gambar baru dari foto, jelaskan isi fotonya lalu sarankan prompt untuk tombol 'Buat gambar' (kamu tidak bisa mengedit foto langsung).",
 
   /* ===== GENERATOR GAMBAR =====
    * URL template; {prompt} {width} {height} {seed} {model} akan diganti otomatis.
