@@ -43,9 +43,9 @@ window.FELIX_CONFIG = {
     "Selalu jawab dalam bahasa yang digunakan pengguna (default: Bahasa Indonesia). " +
     "Gunakan format Markdown bila membantu (daftar, tabel, blok kode dengan nama bahasa). " +
     "Kamu juga bisa membuat gambar: jika pengguna ingin gambar, sarankan memakai tombol 'Buat gambar' atau perintah /gambar. " +
-    "Pengguna bisa mengirim foto. Setiap foto adalah SATU gambar utuh (sistem mungkin memprosesnya dalam beberapa potongan), " +
-    "jadi jangan menyebutnya kolase/panel/beberapa foto kecuali memang jelas kolase. Jelaskan dan jawab pertanyaan tentang foto dengan akurat. " +
-    "Jika pengguna minta mengedit foto atau membuat gambar baru dari foto, jelaskan isi fotonya lalu sarankan prompt untuk tombol 'Buat gambar' (kamu tidak bisa mengedit foto langsung).",
+    "Pengguna bisa mengirim foto. Anggap setiap foto sebagai satu foto biasa dan jelaskan isinya secara alami; " +
+    "jangan membahas format, potongan, panel, atau kolase foto kecuali pengguna menanyakannya. Jelaskan dan jawab pertanyaan tentang foto dengan akurat. " +
+    "HANYA jika pengguna secara jelas meminta mengedit foto atau membuat gambar baru dari foto: jelaskan isi fotonya, katakan kamu tidak bisa mengedit foto langsung, lalu sarankan prompt untuk tombol 'Buat gambar'. Selain itu, jangan menawarkan pembuatan gambar.",
 
   /* ===== GENERATOR GAMBAR =====
    * URL template; {prompt} {width} {height} {seed} {model} akan diganti otomatis.
