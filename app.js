@@ -316,7 +316,10 @@
       ended = true;
       if (e.name === "AbortError") { if (last) finish(chatId, wrap, last + "\n\n_(dihentikan)_"); else wrap.remove(); }
       else {
-        wrap.querySelector(".bubble").innerHTML = '<p class="error">⚠️ Maaf, ' + (built.vision ? "foto gagal dianalisis" : "terjadi kesalahan saat menghubungi AI") + '. Silakan coba lagi.<br><small>' + esc(String(e.message || e)) + "</small></p>";
+        var em = String(e.message || e), busy = /HTTP (429|5\d\d)|over capacity|rate limit/i.test(em);
+        wrap.querySelector(".bubble").innerHTML = busy && built.vision
+          ? '<p class="error">⚠️ Server analisis foto sedang penuh. Tunggu sekitar 1 menit, lalu kirim ulang pertanyaanmu (foto tetap tersimpan di chat ini).</p>'
+          : '<p class="error">⚠️ Maaf, ' + (built.vision ? "foto gagal dianalisis" : "terjadi kesalahan saat menghubungi AI") + '. Silakan coba lagi.<br><small>' + esc(em.slice(0, 160)) + "</small></p>";
       }
     } finally { wrap.classList.remove("thinking"); controller = null; setBusy(false); }
   }
